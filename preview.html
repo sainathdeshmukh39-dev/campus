@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Lost & Found | University Belonging Recovery Platform</title>
+  <meta name="description" content="Centralized campus lost and found platform for university students and staff to report, track, and recover lost belongings safely." />
+
+  <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN with custom config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            campus: {
+              50: '#f0f4f9',
+              100: '#e1e9f3',
+              500: '#3871ab',
+              800: '#1d3d62',
+              900: '#0f2744',
+            },
+            navy: {
+              900: '#0a192f',
+              800: '#112240',
+              700: '#1b3258',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            heading: ['Plus Jakarta Sans', 'Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & React 18 & Babel for Browser Live Render -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    }
+    .animate-float {
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, createContext, useContext } = React;
+
+    // --- MOCK DATA ---
+    const INITIAL_PROFILES = [
+      {
+        id: 'user-student-1',
+        full_name: 'Alex Morgan',
+        email: 'alex.student@campus.edu',
+        student_id: 'CS-2024-892',
+        department: 'Computer Science & Engineering',
+        role: 'student',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'
+      },
+      {
+        id: 'user-staff-1',
+        full_name: 'Prof. Sarah Jenkins',
+        email: 'sarah.staff@campus.edu',
+        student_id: 'STAFF-1049',
+        department: 'Central University Library',
+        role: 'staff',
+        avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=256&q=80'
+      },
+      {
+        id: 'user-admin-1',
+        full_name: 'Dr. Marcus Vance',
+        email: 'admin@campus.edu',
+        student_id: 'ADMIN-001',
+        department: 'Campus Security & Administration',
+        role: 'admin',
+        avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80'
+      }
+    ];
+
+    const INITIAL_ITEMS = [
+      {
+        id: 'item-1',
+        user_id: 'user-student-1',
+        reporter_name: 'Alex Morgan',
+        reporter_email: 'alex.student@campus.edu',
+        type: 'lost',
+        title: 'Space Gray MacBook Pro 14" M2',
+        category: 'Electronics',
+        description: 'Left behind in a black sleeve case near the 2nd floor window cubicles. Has an octocat sticker and Python logo on the top lid.',
+        location: 'Central Library, 2nd Floor Silent Study Area',
+        date_occurred: '2026-10-22',
+        image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Serial ending in X7M9. Laptop lock screen displays "Alex M - Return to campus CS desk".',
+        contact_preference: 'in_app',
+        status: 'open',
+        is_flagged: false,
+        views_count: 142,
+        created_at: '2026-10-22T09:30:00Z'
+      },
+      {
+        id: 'item-2',
+        user_id: 'user-staff-1',
+        reporter_name: 'Prof. Sarah Jenkins',
+        reporter_email: 'sarah.staff@campus.edu',
+        type: 'found',
+        title: 'Sony WH-1000XM4 Noise Canceling Headphones',
+        category: 'Electronics',
+        description: 'Found inside a zippered hard case on row 4 seat B. Black color, fully charged.',
+        location: 'Student Center Auditorium, Room 101',
+        date_occurred: '2026-10-23',
+        image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Has a small scratch near the left hinge; custom braided 3.5mm blue cable inside case.',
+        contact_preference: 'in_app',
+        status: 'open',
+        is_flagged: false,
+        views_count: 89,
+        created_at: '2026-10-23T11:15:00Z'
+      },
+      {
+        id: 'item-3',
+        user_id: 'user-staff-1',
+        reporter_name: 'Prof. Sarah Jenkins',
+        reporter_email: 'sarah.staff@campus.edu',
+        type: 'found',
+        title: 'Official Campus Student ID Card',
+        category: 'ID Cards',
+        description: 'Blue university lanyard with RFID access badge found near the turnstiles.',
+        location: 'Engineering Quad, Main Gate Entrance',
+        date_occurred: '2026-10-24',
+        image_url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Student name begins with "K. S...", batch year 2025. Contact administration to claim.',
+        contact_preference: 'in_app',
+        status: 'open',
+        is_flagged: false,
+        views_count: 65,
+        created_at: '2026-10-24T08:20:00Z'
+      },
+      {
+        id: 'item-4',
+        user_id: 'user-student-1',
+        reporter_name: 'Alex Morgan',
+        reporter_email: 'alex.student@campus.edu',
+        type: 'lost',
+        title: 'North Face Borealis Backpack (Navy/Black)',
+        category: 'Bags',
+        description: 'Contains calculus textbook, spiral notebooks with class notes, and a stainless steel Thermos.',
+        location: 'Campus Dining Commons, Booth 12',
+        date_occurred: '2026-10-21',
+        image_url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Has an orange carabiner clip on the side mesh pocket.',
+        contact_preference: 'in_app',
+        status: 'claim_pending',
+        is_flagged: false,
+        views_count: 110,
+        created_at: '2026-10-21T14:45:00Z'
+      },
+      {
+        id: 'item-5',
+        user_id: 'user-staff-1',
+        reporter_name: 'Prof. Sarah Jenkins',
+        reporter_email: 'sarah.staff@campus.edu',
+        type: 'found',
+        title: 'Set of 4 Brass Keys with Toyota Fob',
+        category: 'Keys',
+        description: 'Keychain with mini leather loop and blue gym locker tag #142.',
+        location: 'Sports Complex & Gymnasium Bleachers',
+        date_occurred: '2026-10-20',
+        image_url: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Toyota key has worn lock button; gym tag is blue plastic with number 142 stamped.',
+        contact_preference: 'in_app',
+        status: 'returned',
+        is_flagged: false,
+        views_count: 215,
+        created_at: '2026-10-20T16:00:00Z'
+      },
+      {
+        id: 'item-6',
+        user_id: 'user-student-1',
+        reporter_name: 'Alex Morgan',
+        reporter_email: 'alex.student@campus.edu',
+        type: 'lost',
+        title: 'Calculus: Early Transcendentals (9th Edition)',
+        category: 'Books',
+        description: 'Hardcover textbook with yellow highlighter on chapter 4.',
+        location: 'Science Block B, Chemistry Lecture Hall 3',
+        date_occurred: '2026-10-19',
+        image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+        identifying_details: 'Has sticky tab markers on integration techniques.',
+        contact_preference: 'in_app',
+        status: 'open',
+        is_flagged: false,
+        views_count: 48,
+        created_at: '2026-10-19T10:00:00Z'
+      }
+    ];
+
+    const INITIAL_CLAIMS = [
+      {
+        id: 'claim-1',
+        item_id: 'item-2',
+        item_title: 'Sony WH-1000XM4 Noise Canceling Headphones',
+        claimant_id: 'user-student-1',
+        claimant_name: 'Alex Morgan',
+        claimant_email: 'alex.student@campus.edu',
+        item_owner_id: 'user-staff-1',
+        proof_description: 'Bluetooth name is "Alex-M4". Left ear cushion has a tiny scratch on the pivot hinge.',
+        contact_info: 'alex.student@campus.edu / (555) 234-5678',
+        message: 'Forgot them on seat B row 4 after the 10 AM seminar.',
+        status: 'pending',
+        created_at: '2026-10-23T14:20:00Z'
+      }
+    ];
+
+    const INITIAL_NOTIFICATIONS = [
+      {
+        id: 'notif-1',
+        user_id: 'user-staff-1',
+        title: 'New Claim Received',
+        message: 'Alex Morgan submitted a claim request for "Sony WH-1000XM4 Noise Canceling Headphones".',
+        type: 'claim_received',
+        is_read: false,
+        created_at: '2026-10-23T14:20:00Z'
+      },
+      {
+        id: 'notif-2',
+        user_id: 'user-student-1',
+        title: 'Campus Lost & Found Welcome',
+        message: 'Welcome to Campus Lost & Found! Report missing belongings or help peers reconnect with lost items.',
+        type: 'info',
+        is_read: true,
+        created_at: '2026-10-18T09:00:00Z'
+      }
+    ];
+
+    const ITEM_CATEGORIES = ['Electronics', 'ID Cards', 'Books', 'Bags', 'Keys', 'Clothing', 'Accessories', 'Other'];
+    const CAMPUS_LOCATIONS = [
+      'Central Library',
+      'Student Center & Dining Commons',
+      'Engineering Quad',
+      'Science Block B',
+      'Sports Complex & Gymnasium',
+      'Innovation Hub & Computer Labs',
+      'Main Auditorium & Arts Center'
+    ];
+
+    // --- CONTEXT ---
+    const AppContext = createContext();
+
+    function AppProvider({ children }) {
+      const [currentUser, setCurrentUser] = useState(() => {
+        const saved = localStorage.getItem('clf_user');
+        return saved ? JSON.parse(saved) : INITIAL_PROFILES[0];
+      });
+
+      const [items, setItems] = useState(() => {
+        const saved = localStorage.getItem('clf_items');
+        return saved ? JSON.parse(saved) : INITIAL_ITEMS;
+      });
+
+      const [claims, setClaims] = useState(() => {
+        const saved = localStorage.getItem('clf_claims');
+        return saved ? JSON.parse(saved) : INITIAL_CLAIMS;
+      });
+
+      const [notifications, setNotifications] = useState(() => {
+        const saved = localStorage.getItem('clf_notifs');
+        return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+      });
+
+      const [currentView, setCurrentView] = useState('landing');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [selectedCategory, setSelectedCategory] = useState('All');
+      const [selectedLocation, setSelectedLocation] = useState('All');
+      const [selectedTab, setSelectedTab] = useState('all');
+      const [sortOrder, setSortOrder] = useState('newest');
+      const [viewMode, setViewMode] = useState('grid');
+
+      // Modals
+      const [authModalOpen, setAuthModalOpen] = useState(false);
+      const [authModalMode, setAuthModalMode] = useState('login');
+      const [reportModalOpen, setReportModalOpen] = useState(false);
+      const [reportModalType, setReportModalType] = useState('lost');
+      const [editingItem, setEditingItem] = useState(null);
+      const [detailModalItem, setDetailModalItem] = useState(null);
+      const [claimModalItem, setClaimModalItem] = useState(null);
+      const [toasts, setToasts] = useState([]);
+
+      useEffect(() => {
+        if (currentUser) localStorage.setItem('clf_user', JSON.stringify(currentUser));
+        else localStorage.removeItem('clf_user');
+      }, [currentUser]);
+
+      useEffect(() => {
+        localStorage.setItem('clf_items', JSON.stringify(items));
+      }, [items]);
+
+      useEffect(() => {
+        localStorage.setItem('clf_claims', JSON.stringify(claims));
+      }, [claims]);
+
+      useEffect(() => {
+        localStorage.setItem('clf_notifs', JSON.stringify(notifications));
+      }, [notifications]);
+
+      const showToast = (message, type = 'info') => {
+        const id = Date.now() + Math.random().toString();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+      };
+
+      const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+      const handleLogin = (email) => {
+        const found = INITIAL_PROFILES.find(p => p.email.toLowerCase() === email.toLowerCase());
+        const user = found || {
+          id: 'user-' + Date.now(),
+          email,
+          full_name: email.split('@')[0],
+          role: email.includes('admin') ? 'admin' : 'student'
+        };
+        setCurrentUser(user);
+        showToast(`Logged in as ${user.full_name} (${user.role.toUpperCase()})`, 'success');
+        return user;
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+        showToast('Signed out of campus network.', 'info');
+      };
+
+      const switchDemoPersona = (role) => {
+        const target = INITIAL_PROFILES.find(p => p.role === role) || INITIAL_PROFILES[0];
+        setCurrentUser(target);
+        showToast(`Switched active persona to ${target.full_name} (${target.role.toUpperCase()})`, 'success');
+      };
+
+      const saveItem = (itemData) => {
+        if (!currentUser) {
+          setAuthModalOpen(true);
+          return;
+        }
+
+        if (editingItem) {
+          const updated = { ...editingItem, ...itemData };
+          setItems(prev => prev.map(i => i.id === editingItem.id ? updated : i));
+          setEditingItem(null);
+          showToast('Item report updated successfully!', 'success');
+          return updated;
+        }
+
+        const newItem = {
+          id: 'item-' + Date.now(),
+          user_id: currentUser.id,
+          reporter_name: currentUser.full_name,
+          reporter_email: currentUser.email,
+          views_count: 1,
+          status: 'open',
+          is_flagged: false,
+          created_at: new Date().toISOString(),
+          image_url: itemData.image_url || 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80',
+          ...itemData
+        };
+        setItems(prev => [newItem, ...prev]);
+        showToast(`${newItem.type === 'lost' ? 'Lost' : 'Found'} item published!`, 'success');
+        return newItem;
+      };
+
+      const deleteItem = (itemId) => {
+        setItems(prev => prev.filter(i => i.id !== itemId));
+        showToast('Report deleted.', 'info');
+      };
+
+      const toggleFlagItem = (itemId) => {
+        setItems(prev => prev.map(i => i.id === itemId ? { ...i, is_flagged: !i.is_flagged } : i));
+        showToast('Post flag status updated.', 'info');
+      };
+
+      const submitClaim = (claimData) => {
+        if (!currentUser) {
+          setAuthModalOpen(true);
+          return;
+        }
+        const targetItem = items.find(i => i.id === claimData.item_id);
+        const newClaim = {
+          id: 'claim-' + Date.now(),
+          item_id: targetItem.id,
+          item_title: targetItem.title,
+          claimant_id: currentUser.id,
+          claimant_name: currentUser.full_name,
+          claimant_email: currentUser.email,
+          item_owner_id: targetItem.user_id,
+          proof_description: claimData.proof_description,
+          contact_info: claimData.contact_info,
+          message: claimData.message,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        };
+        setClaims(prev => [newClaim, ...prev]);
+        setItems(prev => prev.map(i => i.id === targetItem.id ? { ...i, status: 'claim_pending' } : i));
+        
+        // Notification to finder
+        setNotifications(prev => [{
+          id: 'notif-' + Date.now(),
+          user_id: targetItem.user_id,
+          title: 'New Ownership Claim Submitted',
+          message: `${currentUser.full_name} claimed "${targetItem.title}". Review proof in dashboard.`,
+          is_read: false,
+          created_at: new Date().toISOString()
+        }, ...prev]);
+
+        showToast('Claim submitted to finder! Check dashboard for updates.', 'success');
+      };
+
+      const reviewClaim = (claimId, newStatus) => {
+        const claim = claims.find(c => c.id === claimId);
+        setClaims(prev => prev.map(c => c.id === claimId ? { ...c, status: newStatus } : c));
+        
+        if (newStatus === 'completed') {
+          setItems(prev => prev.map(i => i.id === claim.item_id ? { ...i, status: 'returned' } : i));
+          showToast('Claim approved! Item marked as Returned.', 'success');
+        } else {
+          setItems(prev => prev.map(i => i.id === claim.item_id ? { ...i, status: 'open' } : i));
+          showToast('Claim rejected.', 'info');
+        }
+      };
+
+      const stats = {
+        totalLost: items.filter(i => i.type === 'lost').length,
+        totalFound: items.filter(i => i.type === 'found').length,
+        totalReturned: items.filter(i => i.status === 'returned').length,
+        successRate: Math.round((items.filter(i => i.status === 'returned').length / Math.max(items.length, 1)) * 100)
+      };
+
+      const filteredItems = items.filter(item => {
+        if (item.is_flagged && (!currentUser || (currentUser.role !== 'admin' && currentUser.id !== item.user_id))) return false;
+        if (selectedTab === 'lost' && item.type !== 'lost') return false;
+        if (selectedTab === 'found' && item.type !== 'found') return false;
+        if (selectedTab === 'returned' && item.status !== 'returned') return false;
+        if (selectedCategory !== 'All' && item.category !== selectedCategory) return false;
+        if (selectedLocation !== 'All' && !item.location.toLowerCase().includes(selectedLocation.toLowerCase())) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          return item.title.toLowerCase().includes(q) || item.description.toLowerCase().includes(q) || item.location.toLowerCase().includes(q);
+        }
+        return true;
+      }).sort((a, b) => {
+        const dateA = new Date(a.date_occurred || a.created_at);
+        const dateB = new Date(b.date_occurred || b.created_at);
+        return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      });
+
+      return (
+        <AppContext.Provider value={{
+          currentUser, handleLogin, handleLogout, switchDemoPersona,
+          items, filteredItems, saveItem, deleteItem, toggleFlagItem, editingItem, setEditingItem,
+          claims, submitClaim, reviewClaim,
+          notifications: currentUser ? notifications.filter(n => n.user_id === currentUser.id) : [],
+          currentView, setCurrentView,
+          searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, selectedLocation, setSelectedLocation,
+          selectedTab, setSelectedTab, sortOrder, setSortOrder, viewMode, setViewMode,
+          authModalOpen, setAuthModalOpen, authModalMode, setAuthModalMode,
+          reportModalOpen, setReportModalOpen, reportModalType, setReportModalType,
+          detailModalItem, setDetailModalItem, claimModalItem, setClaimModalItem,
+          toasts, showToast, removeToast, stats
+        }}>
+          {children}
+        </AppContext.Provider>
+      );
+    }
+
+    const useApp = () => useContext(AppContext);
+
+    // --- NAVBAR ---
+    function Navbar() {
+      const { 
+        currentUser, handleLogout, switchDemoPersona, notifications, 
+        currentView, setCurrentView, setAuthModalOpen, setAuthModalMode,
+        setReportModalOpen, setReportModalType 
+      } = useApp();
+
+      const [demoOpen, setDemoOpen] = useState(false);
+      const [userOpen, setUserOpen] = useState(false);
+      const unreadCount = notifications.filter(n => !n.is_read).length;
+
+      const openReport = (type) => {
+        if (!currentUser) { setAuthModalOpen(true); return; }
+        setReportModalType(type);
+        setReportModalOpen(true);
+      };
+
+      return (
+        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            
+            {/* Logo */}
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-900 via-blue-900 to-blue-600 flex items-center justify-center text-white shadow-md font-bold">
+                CL
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-slate-900 tracking-tight text-lg">Campus Lost & Found</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Campus Net</span>
+                </div>
+                <p className="text-[11px] text-slate-500">Centralized University Belonging Registry</p>
+              </div>
+            </div>
+
+            {/* Nav links */}
+            <nav className="hidden md:flex items-center gap-2">
+              <button
+                onClick={() => setCurrentView('landing')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${currentView === 'landing' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Home
+              </button>
+              <button
+                onClick={() => setCurrentView('browse')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${currentView === 'browse' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Browse Items
+              </button>
+              {currentUser && (
+                <button
+                  onClick={() => setCurrentView('dashboard')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${currentView === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  Dashboard
+                </button>
+              )}
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setCurrentView('admin')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${currentView === 'admin' ? 'bg-purple-50 text-purple-700' : 'text-purple-600 hover:bg-purple-50'}`}
+                >
+                  Admin Moderation
+                </button>
+              )}
+            </nav>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Report buttons */}
+              <button
+                onClick={() => openReport('lost')}
+                className="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200"
+              >
+                + Report Lost
+              </button>
+              <button
+                onClick={() => openReport('found')}
+                className="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
+              >
+                + Report Found
+              </button>
+
+              {/* Demo Mode Persona Switcher */}
+              <div className="relative">
+                <button
+                  onClick={() => setDemoOpen(!demoOpen)}
+                  className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 flex items-center gap-1.5"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  <span>Demo: {currentUser?.role?.toUpperCase() || 'GUEST'}</span>
+                </button>
+
+                {demoOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50">
+                    <p className="text-xs font-bold text-slate-700 mb-2">Switch Active Persona:</p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => { switchDemoPersona('student'); setDemoOpen(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 flex justify-between font-medium text-slate-700"
+                      >
+                        <span>Alex Morgan (Student)</span>
+                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">Student</span>
+                      </button>
+                      <button
+                        onClick={() => { switchDemoPersona('staff'); setDemoOpen(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 flex justify-between font-medium text-slate-700"
+                      >
+                        <span>Prof. Jenkins (Staff)</span>
+                        <span className="text-[10px] text-purple-600 bg-purple-50 px-1 rounded">Staff</span>
+                      </button>
+                      <button
+                        onClick={() => { switchDemoPersona('admin'); setDemoOpen(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 flex justify-between font-medium text-slate-700"
+                      >
+                        <span>Dr. Vance (Admin)</span>
+                        <span className="text-[10px] text-rose-600 bg-rose-50 px-1 rounded">Admin</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* User profile / Login */}
+              {currentUser ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setUserOpen(!userOpen)}
+                    className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100"
+                  >
+                    <img src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80'} className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-300" />
+                    <span className="text-xs font-bold text-slate-800 hidden lg:inline">{currentUser.full_name.split(' ')[0]}</span>
+                  </button>
+                  {userOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
+                      <div className="px-3 py-1.5 border-b border-slate-100 font-semibold text-slate-700">
+                        {currentUser.full_name}
+                      </div>
+                      <button onClick={() => { setCurrentView('dashboard'); setUserOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50">
+                        Student Dashboard
+                      </button>
+                      {currentUser.role === 'admin' && (
+                        <button onClick={() => { setCurrentView('admin'); setUserOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-purple-600 font-semibold">
+                          Admin Moderation
+                        </button>
+                      )}
+                      <button onClick={() => { handleLogout(); setUserOpen(false); }} className="w-full text-left px-3 py-1.5 hover:bg-slate-50 text-rose-600 font-semibold">
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Sign In
+                </button>
+              )}
+
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    // --- HERO ---
+    function Hero() {
+      const { setCurrentView, setReportModalOpen, setReportModalType, searchQuery, setSearchQuery, currentUser, setAuthModalOpen } = useApp();
+
+      const handleReport = (type) => {
+        if (!currentUser) { setAuthModalOpen(true); return; }
+        setReportModalType(type);
+        setReportModalOpen(true);
+      };
+
+      return (
+        <section className="relative pt-12 pb-16 lg:pt-20 lg:pb-24 bg-gradient-to-b from-blue-50/60 via-white to-slate-50 overflow-hidden text-center">
+          <div className="max-w-4xl mx-auto px-4">
+            
+            <div className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mb-6">
+              ✨ Official University Belonging Recovery Platform
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              Lost Something on Campus? <br />
+              <span className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Let's Find It.
+              </span>
+            </h1>
+
+            <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto">
+              The centralized, secure platform connecting students, faculty, and campus staff. Report missing belongings, publish found items, and safely coordinate returns.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <button
+                id="btn-report-lost-hero"
+                onClick={() => handleReport('lost')}
+                className="px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-rose-600 hover:bg-rose-700 shadow-md hover:shadow-lg transition-all"
+              >
+                + Report Lost Item
+              </button>
+              <button
+                id="btn-report-found-hero"
+                onClick={() => handleReport('found')}
+                className="px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md hover:shadow-lg transition-all"
+              >
+                + Report Found Item
+              </button>
+              <button
+                id="btn-browse-hero"
+                onClick={() => setCurrentView('browse')}
+                className="px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 shadow-xs"
+              >
+                Browse Items →
+              </button>
+            </div>
+
+            {/* Quick Search */}
+            <div className="mt-10 max-w-lg mx-auto bg-white rounded-2xl shadow-lg border border-slate-200 p-2 flex items-center">
+              <input
+                id="hero-search-input"
+                type="text"
+                placeholder="Search by keyword, item name (e.g. 'MacBook', 'AirPods', 'Keys')..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm focus:outline-hidden text-slate-800"
+              />
+              <button
+                onClick={() => setCurrentView('browse')}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shrink-0"
+              >
+                Search
+              </button>
+            </div>
+
+          </div>
+        </section>
+      );
+    }
+
+    // --- STATS ---
+    function StatsSection() {
+      const { stats } = useApp();
+      return (
+        <section className="py-8 bg-white border-y border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600">Lost Reports</span>
+              <p className="text-3xl font-extrabold text-slate-900 mt-1">{stats.totalLost}</p>
+              <span className="text-xs text-slate-500">Active missing belongings</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Found Items</span>
+              <p className="text-3xl font-extrabold text-slate-900 mt-1">{stats.totalFound}</p>
+              <span className="text-xs text-slate-500">Safely logged on campus</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">Reunited with Owners</span>
+              <p className="text-3xl font-extrabold text-slate-900 mt-1">{stats.totalReturned}</p>
+              <span className="text-xs text-slate-500">Successfully returned</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">Recovery Rate</span>
+              <p className="text-3xl font-extrabold text-slate-900 mt-1">{stats.successRate}%</p>
+              <span className="text-xs text-slate-500">Campus resolution efficiency</span>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // --- ITEM CARD ---
+    function ItemCard({ item, viewMode = 'grid' }) {
+      const { currentUser, setDetailModalItem, setClaimModalItem, setEditingItem, setReportModalOpen, deleteItem, setAuthModalOpen } = useApp();
+
+      const isOwner = currentUser && currentUser.id === item.user_id;
+      const isFound = item.type === 'found';
+      const isReturned = item.status === 'returned';
+
+      const handleClaim = (e) => {
+        e.stopPropagation();
+        if (!currentUser) { setAuthModalOpen(true); return; }
+        setClaimModalItem(item);
+      };
+
+      return (
+        <div 
+          onClick={() => setDetailModalItem(item)}
+          className="bg-white rounded-3xl overflow-hidden border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between group"
+        >
+          <div>
+            <div className="relative aspect-16/10 bg-slate-100 overflow-hidden">
+              <img src={item.image_url} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <div className="absolute top-3 left-3 flex gap-1.5">
+                <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md text-white ${item.type === 'lost' ? 'bg-rose-600' : 'bg-emerald-600'}`}>
+                  {item.type}
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/90 text-slate-800 shadow-xs">
+                  {item.category}
+                </span>
+              </div>
+              <div className="absolute top-3 right-3">
+                <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                  isReturned ? 'bg-blue-600 text-white' : item.status === 'claim_pending' ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'
+                }`}>
+                  {item.status.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-5">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                <span>📍 {item.location}</span>
+                <span>📅 {item.date_occurred}</span>
+              </div>
+              <h3 className="font-bold text-base text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                {item.title}
+              </h3>
+              <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5 pt-2 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">By {item.reporter_name.split(' ')[0]}</span>
+            <div className="flex items-center gap-2">
+              {isFound && !isOwner && !isReturned && (
+                <button
+                  onClick={handleClaim}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs"
+                >
+                  This Is Mine
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); setDetailModalItem(item); }}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200"
+              >
+                Details
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- LANDING PAGE ---
+    function LandingPage() {
+      const { items, setCurrentView } = useApp();
+      const recentItems = items.filter(i => !i.is_flagged).slice(0, 6);
+
+      return (
+        <div>
+          <Hero />
+          <StatsSection />
+          
+          <section className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Campus Activity</span>
+                <h2 className="text-2xl font-extrabold text-slate-900 mt-1">Recently Reported Belongings</h2>
+              </div>
+              <button
+                onClick={() => setCurrentView('browse')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-4 py-2 rounded-xl"
+              >
+                Browse All Items →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentItems.map(item => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          </section>
+
+          {/* 3 Step Process */}
+          <section className="py-16 bg-white border-t border-slate-200">
+            <div className="max-w-7xl mx-auto px-4 text-center">
+              <span className="text-xs font-bold uppercase text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Simple 3-Step Process</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 mt-3">How Campus Lost & Found Works</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 text-left">
+                <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200">
+                  <span className="text-3xl font-extrabold text-blue-600">01</span>
+                  <h3 className="text-base font-bold text-slate-900 mt-4">Report in 60 Seconds</h3>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Post a lost or found report with pictures, campus location, date, and a confidential secret identifier for verification.
+                  </p>
+                </div>
+                <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200">
+                  <span className="text-3xl font-extrabold text-indigo-600">02</span>
+                  <h3 className="text-base font-bold text-slate-900 mt-4">Verify Ownership Privately</h3>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Found your missing item? Submit a claim with proof of ownership (e.g. lockscreen wallpaper, serial digit) kept safe from the public.
+                  </p>
+                </div>
+                <div className="p-8 rounded-3xl bg-slate-50 border border-slate-200">
+                  <span className="text-3xl font-extrabold text-emerald-600">03</span>
+                  <h3 className="text-base font-bold text-slate-900 mt-4">Safe Campus Reconnection</h3>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    Once the reporter verifies and approves your claim, hand off belongings safely at campus security or library desks.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    // --- BROWSE PAGE ---
+    function BrowsePage() {
+      const { 
+        filteredItems, searchQuery, setSearchQuery, selectedCategory, setSelectedCategory,
+        selectedLocation, setSelectedLocation, selectedTab, setSelectedTab, sortOrder, setSortOrder
+      } = useApp();
+
+      return (
+        <div className="min-h-screen py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="pb-6 border-b border-slate-200">
+            <h1 className="text-3xl font-extrabold text-slate-900">Campus Belongings Directory</h1>
+            <p className="text-xs text-slate-500 mt-1">Search, filter, and discover reported lost and found items</p>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="mt-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex gap-1 p-1 bg-white rounded-2xl border border-slate-200">
+                {[
+                  { id: 'all', label: 'All Items' },
+                  { id: 'lost', label: 'Lost Only' },
+                  { id: 'found', label: 'Found Only' },
+                  { id: 'returned', label: 'Resolved' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedTab(tab.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold ${selectedTab === tab.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Filter by keyword..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
+                />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
+                >
+                  <option value="All">All Categories</option>
+                  {ITEM_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 max-w-[150px] truncate"
+                >
+                  <option value="All">All Locations</option>
+                  {CAMPUS_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Results Grid */}
+          <div className="mt-8">
+            {filteredItems.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
+                <p className="text-slate-400 text-sm">No items found matching your filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredItems.map(item => (
+                  <ItemCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // --- STUDENT DASHBOARD ---
+    function StudentDashboard() {
+      const { currentUser, items, claims, reviewClaim, notifications, setReportModalOpen, setReportModalType } = useApp();
+      const [tab, setTab] = useState('lost');
+
+      if (!currentUser) return <div className="p-12 text-center text-slate-400">Please sign in to view your dashboard.</div>;
+
+      const myLost = items.filter(i => i.user_id === currentUser.id && i.type === 'lost');
+      const myFound = items.filter(i => i.user_id === currentUser.id && i.type === 'found');
+      const incomingClaims = claims.filter(c => c.item_owner_id === currentUser.id);
+      const myClaims = claims.filter(c => c.claimant_id === currentUser.id);
+
+      return (
+        <div className="min-h-screen py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <img src={currentUser.avatar_url} className="w-16 h-16 rounded-2xl object-cover ring-2 ring-blue-500/20" />
+              <div>
+                <h1 className="text-2xl font-extrabold text-slate-900">{currentUser.full_name}</h1>
+                <p className="text-xs text-slate-500">{currentUser.email} • {currentUser.department} ({currentUser.role.toUpperCase()})</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setReportModalType('lost'); setReportModalOpen(true); }} className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white">
+                + Report Lost
+              </button>
+              <button onClick={() => { setReportModalType('found'); setReportModalOpen(true); }} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+                + Report Found
+              </button>
+            </div>
+          </div>
+
+          {/* Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div onClick={() => setTab('lost')} className={`p-4 rounded-2xl border cursor-pointer ${tab === 'lost' ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}>
+              <span className="text-xs font-bold text-slate-500">My Lost Reports</span>
+              <p className="text-2xl font-extrabold text-slate-900">{myLost.length}</p>
+            </div>
+            <div onClick={() => setTab('found')} className={`p-4 rounded-2xl border cursor-pointer ${tab === 'found' ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+              <span className="text-xs font-bold text-slate-500">My Found Reports</span>
+              <p className="text-2xl font-extrabold text-slate-900">{myFound.length}</p>
+            </div>
+            <div onClick={() => setTab('incoming')} className={`p-4 rounded-2xl border cursor-pointer ${tab === 'incoming' ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'}`}>
+              <span className="text-xs font-bold text-slate-500">Incoming Claims</span>
+              <p className="text-2xl font-extrabold text-slate-900">{incomingClaims.length}</p>
+            </div>
+            <div onClick={() => setTab('myclaims')} className={`p-4 rounded-2xl border cursor-pointer ${tab === 'myclaims' ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}>
+              <span className="text-xs font-bold text-slate-500">My Sent Claims</span>
+              <p className="text-2xl font-extrabold text-slate-900">{myClaims.length}</p>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="mt-8">
+            {tab === 'lost' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myLost.map(item => <ItemCard key={item.id} item={item} />)}
+              </div>
+            )}
+            {tab === 'found' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myFound.map(item => <ItemCard key={item.id} item={item} />)}
+              </div>
+            )}
+            {tab === 'incoming' && (
+              <div className="space-y-4">
+                {incomingClaims.map(claim => (
+                  <div key={claim.id} className="bg-white p-6 rounded-3xl border border-slate-200 flex flex-col md:flex-row justify-between gap-4">
+                    <div>
+                      <span className="text-xs font-bold text-blue-600">Claim on: {claim.item_title}</span>
+                      <h4 className="font-bold text-slate-900 mt-1">Claimant: {claim.claimant_name} ({claim.claimant_email})</h4>
+                      <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl mt-2 border border-slate-200">
+                        <strong>Submitted Proof:</strong> {claim.proof_description}
+                      </p>
+                    </div>
+                    {claim.status === 'pending' && (
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button onClick={() => reviewClaim(claim.id, 'rejected')} className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100">
+                          Reject
+                        </button>
+                        <button onClick={() => reviewClaim(claim.id, 'completed')} className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs">
+                          Approve & Mark Returned
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {tab === 'myclaims' && (
+              <div className="space-y-4">
+                {myClaims.map(claim => (
+                  <div key={claim.id} className="bg-white p-6 rounded-3xl border border-slate-200">
+                    <h4 className="font-bold text-slate-900">{claim.item_title}</h4>
+                    <span className="text-xs text-slate-500">Status: {claim.status.toUpperCase()}</span>
+                    <p className="text-xs text-slate-600 mt-2 bg-slate-50 p-3 rounded-xl">Proof: {claim.proof_description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // --- ADMIN DASHBOARD ---
+    function AdminDashboard() {
+      const { currentUser, items, deleteItem, toggleFlagItem, setDetailModalItem } = useApp();
+
+      if (currentUser?.role !== 'admin') {
+        return <div className="p-12 text-center text-rose-600 font-bold">Admin Authority Required.</div>;
+      }
+
+      const flagged = items.filter(i => i.is_flagged);
+
+      return (
+        <div className="min-h-screen py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-slate-900 text-white p-6 rounded-3xl mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-extrabold">Campus Moderation Command</h1>
+              <p className="text-xs text-slate-400">Moderator: {currentUser.full_name} • University Security Staff</p>
+            </div>
+            <span className="px-3 py-1 bg-rose-500/20 text-rose-300 rounded-full text-xs font-bold border border-rose-500/30">
+              {flagged.length} Flagged Reports
+            </span>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase">
+                <tr>
+                  <th className="p-4">Item</th>
+                  <th className="p-4">Type</th>
+                  <th className="p-4">Reporter</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map(item => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="p-4 font-bold text-slate-900">{item.title}</td>
+                    <td className="p-4 uppercase">{item.type}</td>
+                    <td className="p-4">{item.reporter_name}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.is_flagged ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {item.is_flagged ? 'FLAGGED' : item.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right space-x-2">
+                      <button onClick={() => toggleFlagItem(item.id)} className="text-amber-600 font-bold hover:underline">
+                        {item.is_flagged ? 'Unflag' : 'Flag'}
+                      </button>
+                      <button onClick={() => deleteItem(item.id)} className="text-rose-600 font-bold hover:underline">
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // --- MODALS (Detail, Claim, Report, Auth, Toast) ---
+    function ItemDetailModal() {
+      const { detailModalItem, setDetailModalItem, setClaimModalItem, currentUser, setAuthModalOpen } = useApp();
+      if (!detailModalItem) return null;
+      const item = detailModalItem;
+
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl p-6 relative">
+            <button onClick={() => setDetailModalItem(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">✕</button>
+            <img src={item.image_url} className="w-full h-56 object-cover rounded-2xl mb-4" />
+            <span className="text-xs font-bold text-blue-600 uppercase">{item.type} • {item.category}</span>
+            <h2 className="text-2xl font-extrabold text-slate-900 mt-1">{item.title}</h2>
+            <div className="mt-3 text-xs text-slate-500 space-y-1">
+              <p>📍 Location: {item.location}</p>
+              <p>📅 Date: {item.date_occurred}</p>
+              <p>👤 Reported By: {item.reporter_name}</p>
+            </div>
+            <p className="mt-4 text-sm text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-200">{item.description}</p>
+            
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setDetailModalItem(null)} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600">Close</button>
+              {item.type === 'found' && currentUser?.id !== item.user_id && item.status !== 'returned' && (
+                <button
+                  onClick={() => { setClaimModalItem(item); setDetailModalItem(null); }}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs"
+                >
+                  This Is My Item
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ClaimModal() {
+      const { claimModalItem, setClaimModalItem, submitClaim, currentUser } = useApp();
+      const [proof, setProof] = useState('');
+      const [contact, setContact] = useState(currentUser?.email || '');
+
+      if (!claimModalItem) return null;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        submitClaim({ item_id: claimModalItem.id, proof_description: proof, contact_info: contact });
+        setClaimModalItem(null);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+            <button type="button" onClick={() => setClaimModalItem(null)} className="absolute top-4 right-4 text-slate-400">✕</button>
+            <h3 className="text-lg font-bold text-slate-900">Claim Item: Proof of Ownership</h3>
+            <p className="text-xs text-slate-500 mb-4">{claimModalItem.title}</p>
+            
+            <label className="block text-xs font-bold text-slate-700 mb-1">Ownership Proof Description *</label>
+            <textarea
+              required
+              rows={3}
+              placeholder="Unique scratch marks, lockscreen picture, serial digit, contents of pockets..."
+              value={proof}
+              onChange={(e) => setProof(e.target.value)}
+              className="w-full px-3 py-2 border rounded-xl text-xs mb-3"
+            />
+
+            <label className="block text-xs font-bold text-slate-700 mb-1">Campus Contact *</label>
+            <input
+              required
+              type="text"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              className="w-full px-3 py-2 border rounded-xl text-xs mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setClaimModalItem(null)} className="px-4 py-2 text-xs text-slate-600">Cancel</button>
+              <button type="submit" className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl">Submit Claim</button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    function ReportModal() {
+      const { reportModalOpen, setReportModalOpen, reportModalType, saveItem, editingItem } = useApp();
+      const [title, setTitle] = useState('');
+      const [category, setCategory] = useState(ITEM_CATEGORIES[0]);
+      const [location, setLocation] = useState(CAMPUS_LOCATIONS[0]);
+      const [desc, setDesc] = useState('');
+
+      if (!reportModalOpen) return null;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        saveItem({ title, category, location, description: desc, type: reportModalType });
+        setReportModalOpen(false);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button type="button" onClick={() => setReportModalOpen(false)} className="absolute top-4 right-4 text-slate-400">✕</button>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
+              Report {reportModalType === 'lost' ? 'Lost Item' : 'Found Item'}
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Item Title *</label>
+                <input required type="text" placeholder="e.g. MacBook Pro 14 or Blue Backpack" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2.5 border rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Category *</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 border rounded-xl">
+                    {ITEM_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Location *</label>
+                  <select value={location} onChange={e => setLocation(e.target.value)} className="w-full p-2.5 border rounded-xl truncate">
+                    {CAMPUS_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Description *</label>
+                <textarea required rows={3} placeholder="Provide identifying color, circumstances, appearance..." value={desc} onChange={e => setDesc(e.target.value)} className="w-full p-2.5 border rounded-xl" />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setReportModalOpen(false)} className="px-4 py-2 text-xs text-slate-600">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl">Publish Report</button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    function AuthModal() {
+      const { authModalOpen, setAuthModalOpen, handleLogin, switchDemoPersona } = useApp();
+      const [email, setEmail] = useState('');
+
+      if (!authModalOpen) return null;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        handleLogin(email);
+        setAuthModalOpen(false);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative">
+            <button onClick={() => setAuthModalOpen(false)} className="absolute top-4 right-4 text-slate-400">✕</button>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Campus Sign In</h3>
+            <p className="text-xs text-slate-500 mb-4">Enter university email or select a demo account</p>
+
+            <div className="p-3 bg-amber-50 rounded-xl mb-4 border border-amber-200 text-xs">
+              <p className="font-bold text-amber-900 mb-1.5">Quick 1-Click Demo Accounts:</p>
+              <div className="flex gap-1.5">
+                <button onClick={() => { switchDemoPersona('student'); setAuthModalOpen(false); }} className="px-2.5 py-1 bg-white rounded border border-amber-300 font-semibold text-slate-700">Student</button>
+                <button onClick={() => { switchDemoPersona('staff'); setAuthModalOpen(false); }} className="px-2.5 py-1 bg-white rounded border border-amber-300 font-semibold text-slate-700">Staff</button>
+                <button onClick={() => { switchDemoPersona('admin'); setAuthModalOpen(false); }} className="px-2.5 py-1 bg-white rounded border border-amber-300 font-semibold text-slate-700">Admin</button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                required
+                type="email"
+                placeholder="student@campus.edu"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full p-2.5 border rounded-xl text-xs"
+              />
+              <button type="submit" className="w-full py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl">
+                Sign In
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function Toast() {
+      const { toasts } = useApp();
+      return (
+        <div className="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none">
+          {toasts.map(t => (
+            <div key={t.id} className="p-3.5 bg-slate-900 text-white rounded-2xl shadow-xl text-xs font-semibold pointer-events-auto border border-slate-700">
+              {t.message}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function Footer() {
+      const { setCurrentView } = useApp();
+      return (
+        <footer className="bg-slate-950 text-slate-400 py-10 border-t border-slate-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p>© {new Date().getFullYear()} Campus Lost & Found Platform. University Campus Safety.</p>
+            <div className="flex gap-4">
+              <button onClick={() => setCurrentView('landing')} className="hover:text-white">Home</button>
+              <button onClick={() => setCurrentView('browse')} className="hover:text-white">Browse</button>
+              <button onClick={() => setCurrentView('dashboard')} className="hover:text-white">Dashboard</button>
+            </div>
+          </div>
+        </footer>
+      );
+    }
+
+    // --- MAIN APP ---
+    function App() {
+      const { currentView } = useApp();
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-50">
+          <Navbar />
+          <main className="flex-1">
+            {currentView === 'landing' && <LandingPage />}
+            {currentView === 'browse' && <BrowsePage />}
+            {currentView === 'dashboard' && <StudentDashboard />}
+            {currentView === 'admin' && <AdminDashboard />}
+          </main>
+          <Footer />
+
+          <ItemDetailModal />
+          <ClaimModal />
+          <ReportModal />
+          <AuthModal />
+          <Toast />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <AppProvider>
+        <App />
+      </AppProvider>
+    );
+  </script>
+</body>
+</html>
